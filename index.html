@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>라면 조리 도우미</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Inter 폰트 설정 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            padding: 1rem;
+        }
+        /* 스크롤바 숨기기 (선택 사항) */
+        .ramen-buttons-container::-webkit-scrollbar {
+            display: none;
+        }
+        .ramen-buttons-container {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-start justify-center">
+
+    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 md:p-10 mt-5">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-red-600 mb-1">
+                🍜 라면 조리 도우미 
+            </h1>
+            <!-- 영남공고 장성수 이름 추가 -->
+            <p class="text-xl font-semibold text-gray-800 mb-3">
+                영남공고 장성수
+            </p>
+            <p class="text-gray-600 text-lg">원하는 라면을 선택하면 조리법과 단계별 타이머가 준비됩니다.</p>
+        </header>
+
+        <!-- 라면 버튼 영역 -->
+        <div id="ramen-buttons" class="ramen-buttons-container grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 overflow-x-auto pb-4 mb-8">
+            <!-- 버튼이 여기에 생성됩니다 -->
+        </div>
+
+        <hr class="my-6 border-gray-200">
+
+        <!-- 조리법 및 타이머 영역 -->
+        <div id="ramen-display" class="bg-red-50 p-6 rounded-xl shadow-inner min-h-[300px]">
+            <h2 id="current-ramen-name" class="text-2xl font-bold text-red-700 mb-4 text-center">
+                라면을 선택해주세요
+            </h2>
+            
+            <div id="instruction-card" class="bg-white p-4 rounded-lg shadow-md mb-6 hidden">
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">선택한 라면 조리법</h3>
+                <p id="ramen-instructions" class="text-gray-700 whitespace-pre-line text-base"></p>
+            </div>
+
+            <!-- 타이머 및 단계 버튼 영역 -->
+            <div id="timer-area" class="flex flex-col items-center justify-center space-y-6">
+                
+                <p id="timer-message" class="text-xl font-medium text-gray-700 text-center transition-opacity duration-500 min-h-[30px]">
+                    선택을 기다리고 있습니다...
+                </p>
+
+                <div id="timer-display" class="text-6xl font-extrabold text-red-500 hidden transition-all duration-300">
+                    00:00
+                </div>
+                
+                <!-- 다음 단계 버튼 -->
+                <button id="next-step-button" onclick="nextStep()" class="bg-red-500 text-white px-8 py-3 rounded-full font-bold text-lg shadow-xl hover:bg-red-600 active:bg-red-700 transition duration-300 hidden transform hover:scale-105">
+                    다음 단계로 넘어가기
+                </button>
+
+                <button id="timer-reset-button" onclick="resetTimer()" class="bg-gray-400 text-white px-6 py-2 rounded-full font-semibold shadow-lg hover:bg-gray-500 transition duration-300 hidden">
+                    타이머 초기화
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 라면 데이터 (제품명, 조리 시간(초), 조리법 요약)
+        const ramenData = [
+            { name: "신라면", time: 270, instructions: "물 550ml 끓인 후 면, 스프, 건더기 넣고 3분 30초 끓인 뒤 계란이나 치즈를 올려 1분 더 끓입니다. 총 4분 30초 입니다." },
+            { name: "너구리", time: 300, instructions: "물 550ml 끓인 후 면, 분말스프, 건더기 다시마를 넣고 5분간 끓입니다. 다시마는 면과 같이 넣어주세요." },
+            { name: "짜파게티", time: 300, instructions: "물 600ml에 면을 5분 익히고 물 8숟가락만 남기고 버린 뒤, 유성 스프와 분말 스프를 넣고 비벼 드세요." },
+            { name: "짜왕", time: 300, instructions: "물 600ml에 면을 5분 익히고 물 8숟가락만 남긴 후, 액상과 분말 스프를 넣고 비벼 드세요. 짜장라면 조리법입니다." },
+            { name: "안성탕면", time: 270, instructions: "물 550ml 끓인 후 면, 스프, 건더기를 넣고 4분 30초 끓입니다." },
+            { name: "불닭볶음면", time: 300, instructions: "물 600ml에 면을 5분 익힌 후 물 8숟가락만 남기고, 액상 소스와 김가루를 넣고 비벼 드세요." },
+            { name: "삼양라면", time: 240, instructions: "물 550ml 끓인 후 면, 스프, 건더기를 넣고 3분에서 4분 끓여 드세요. 권장 시간은 4분입니다." },
+            { name: "진라면", time: 240, instructions: "물 550ml 끓이고 건더기 스프 먼저 넣고 끓인 뒤, 분말 스프와 면을 넣고 4분간 끓입니다." },
+            { name: "팔도 비빔면", time: 180, instructions: "물 500ml에서 600ml에 면을 3분 삶은 뒤 찬물에 헹궈 물기를 제거하고 액상 소스와 비빔 야채를 넣고 비벼 드세요." },
+            { name: "왕뚜껑", time: 240, instructions: "뜨거운 물을 붓고 뚜껑을 덮어 3분에서 4분 뒤 드시면 됩니다. 컵라면 기준입니다." }
+        ];
+
+        let countdownTimer;
+        let totalTimeInSeconds = 0;
+        let currentStep = 0; // 0: 선택됨, 1: 물 끓이기, 2: 면 투입/준비, 3: 타이머 진행
+        let selectedRamenIndex = -1;
+        // 오디오 관련 변수 제거됨
+
+        const timerDisplay = document.getElementById('timer-display');
+        const timerMessage = document.getElementById('timer-message');
+        const timerResetButton = document.getElementById('timer-reset-button');
+        const currentRamenName = document.getElementById('current-ramen-name');
+        const ramenInstructions = document.getElementById('ramen-instructions');
+        const instructionCard = document.getElementById('instruction-card');
+        const nextStepButton = document.getElementById('next-step-button');
+
+
+        const stepMessages = [
+            { btnText: "다음 단계로 넘어가기", msg: "1단계: 💧 **물을 끓여주세요.** 냄비에 물을 넣고 불에 올립니다." },
+            { btnText: "다음 단계로 넘어가기", msg: "2단계: 🍜 **라면을 끓인 물에 넣어주세요.** 면과 스프를 넣습니다." },
+            { btnText: "타이머 시작", msg: "3단계: ⏱️ **타이머를 시작 해주세요.** 버튼을 누르면 정해진 시간 동안 끓입니다." }
+        ];
+
+        // --- TTS API 관련 함수 모두 제거됨 ---
+
+        /**
+         * 초기 버튼을 렌더링합니다.
+         */
+        function renderRamenButtons() {
+            const container = document.getElementById('ramen-buttons');
+            container.innerHTML = '';
+            ramenData.forEach((ramen, index) => {
+                const button = document.createElement('button');
+                button.textContent = ramen.name;
+                button.id = `ramen-btn-${index}`;
+                button.className = `ramen-button bg-red-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg hover:bg-red-600 active:bg-red-700 transition duration-150 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-300`;
+                button.onclick = () => selectRamen(index, button);
+                container.appendChild(button);
+            });
+        }
+
+        /**
+         * 라면을 선택했을 때 조리법을 표시하고 단계를 초기화합니다.
+         * @param {number} index 선택된 라면 데이터의 인덱스
+         * @param {HTMLElement} button 클릭된 버튼 요소
+         */
+        function selectRamen(index, button) {
+            const ramen = ramenData[index];
+            selectedRamenIndex = index;
+            totalTimeInSeconds = ramen.time;
+            currentStep = 0; // 첫 단계로 초기화
+            
+            // 1. 조리법 업데이트
+            currentRamenName.textContent = ramen.name;
+            ramenInstructions.textContent = ramen.instructions;
+            instructionCard.classList.remove('hidden');
+
+            // 2. 타이머 초기화 및 메시지 설정
+            resetTimer(false); // 타이머만 초기화, 메시지 숨김 없음
+            
+            timerDisplay.classList.add('hidden');
+            timerResetButton.classList.add('hidden');
+            nextStepButton.classList.remove('hidden');
+            nextStepButton.classList.remove('bg-green-500'); // 타이머 시작 색상 초기화
+            nextStepButton.classList.add('bg-red-500');
+
+            // 3. 단계별 메시지/버튼 설정 (Step 0)
+            nextStepButton.textContent = stepMessages[0].btnText;
+            timerMessage.innerHTML = stepMessages[0].msg;
+            
+            // 4. 버튼 스타일 업데이트
+            document.querySelectorAll('.ramen-button').forEach(btn => {
+                btn.classList.remove('bg-red-800', 'ring-4', 'ring-red-300');
+                btn.classList.add('bg-red-500');
+            });
+            button.classList.remove('bg-red-500');
+            button.classList.add('bg-red-800', 'ring-4', 'ring-red-300');
+        }
+
+        /**
+         * 다음 단계로 진행하거나 타이머를 시작합니다.
+         */
+        function nextStep() {
+            if (selectedRamenIndex === -1) {
+                showMessageBox('경고', '먼저 조리할 라면을 선택해주세요!', 'bg-yellow-100 border-yellow-400 text-yellow-700');
+                return;
+            }
+
+            currentStep++;
+
+            if (currentStep < 3) {
+                // 1단계, 2단계 진행
+                nextStepButton.textContent = stepMessages[currentStep].btnText;
+                timerMessage.innerHTML = stepMessages[currentStep].msg;
+                
+                if (currentStep === 2) {
+                    // 3단계 직전: 버튼 텍스트와 색상 변경
+                    nextStepButton.textContent = stepMessages[currentStep].btnText;
+                    nextStepButton.classList.remove('bg-red-500');
+                    nextStepButton.classList.add('bg-green-500');
+
+                    // 3단계 메시지에서는 타이머 시간을 미리 보여줌
+                    const minutes = Math.floor(totalTimeInSeconds / 60);
+                    const seconds = totalTimeInSeconds % 60;
+                    const timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    
+                    timerMessage.innerHTML = `3단계: ⏱️ **타이머를 시작 해주세요.** (총 ${minutes}분 ${seconds}초)`;
+                    timerDisplay.classList.remove('hidden');
+                    updateTimerDisplay(totalTimeInSeconds);
+                }
+
+            } else {
+                // 3단계: 타이머 시작
+                startTimer();
+                nextStepButton.classList.add('hidden');
+                timerResetButton.classList.remove('hidden');
+                timerMessage.textContent = '🔥 끓이는 중입니다... 잠시만 기다려주세요!';
+            }
+        }
+
+
+        /**
+         * 타이머를 시작합니다.
+         */
+        function startTimer() {
+            let timeLeft = totalTimeInSeconds;
+            
+            timerDisplay.classList.remove('hidden');
+            timerResetButton.classList.remove('hidden');
+            
+            // 1초마다 타이머 업데이트
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+
+                if (timeLeft < 0) {
+                    // 조리 완료
+                    clearInterval(countdownTimer);
+                    timerDisplay.textContent = '00:00';
+                    timerDisplay.classList.remove('text-red-500');
+                    timerDisplay.classList.add('text-green-600', 'animate-pulse');
+                    timerMessage.textContent = '✅ 라면 완성! 맛있게 드세요!';
+                    timerResetButton.classList.remove('bg-gray-400');
+                    timerResetButton.classList.add('bg-blue-500');
+                    
+                    // 알림 (alert 대신 메시지 사용)
+                    const finishMessage = `${ramenData[selectedRamenIndex].name} 조리가 완료되었습니다! 맛있게 드세요!`;
+                    showMessageBox('알림', finishMessage, 'bg-green-100 border-green-400 text-green-700');
+                } else {
+                    updateTimerDisplay(timeLeft);
+                }
+            }, 1000);
+        }
+
+        /**
+         * 타이머 디스플레이를 업데이트합니다.
+         * @param {number} seconds 남은 시간(초)
+         */
+        function updateTimerDisplay(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            const timeString = `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+            timerDisplay.textContent = timeString;
+            
+            // 남은 시간에 따른 색상 변화
+            if (seconds <= 30) {
+                timerDisplay.classList.remove('text-red-500', 'text-yellow-500', 'text-green-600');
+                timerDisplay.classList.add('text-red-600');
+            } else if (seconds <= 60) {
+                timerDisplay.classList.remove('text-red-500', 'text-red-600', 'text-green-600');
+                timerDisplay.classList.add('text-yellow-500');
+            } else {
+                timerDisplay.classList.remove('text-yellow-500', 'text-red-600', 'text-green-600');
+                timerDisplay.classList.add('text-red-500');
+            }
+        }
+
+        /**
+         * 타이머를 초기화합니다. (전체 상태는 초기화하지 않음)
+         * @param {boolean} hideTimer 초기화 후 타이머 디스플레이 숨김 여부
+         */
+        function resetTimer(hideTimer = true) {
+            clearInterval(countdownTimer);
+            
+            if (hideTimer) {
+                timerDisplay.classList.add('hidden');
+                timerResetButton.classList.add('hidden');
+            }
+            
+            timerDisplay.classList.remove('text-green-600', 'animate-pulse', 'text-yellow-500', 'text-red-600');
+            timerDisplay.classList.add('text-red-500');
+            timerResetButton.classList.remove('bg-blue-500');
+            timerResetButton.classList.add('bg-gray-400');
+            
+            if(selectedRamenIndex !== -1) {
+                currentStep = 0; // 초기 단계로 복귀
+                nextStepButton.classList.remove('hidden');
+                nextStepButton.textContent = stepMessages[0].btnText;
+                nextStepButton.classList.remove('bg-green-500');
+                nextStepButton.classList.add('bg-red-500');
+                timerMessage.innerHTML = stepMessages[0].msg;
+                updateTimerDisplay(totalTimeInSeconds);
+            } else {
+                 timerMessage.textContent = '선택을 기다리고 있습니다...';
+            }
+        }
+        
+        /**
+         * 사용자 정의 메시지 박스 (alert() 대체)
+         * @param {string} title 제목
+         * @param {string} message 내용
+         * @param {string} styleClass 스타일 클래스
+         */
+        function showMessageBox(title, message, styleClass) {
+            const existingBox = document.getElementById('message-box');
+            if (existingBox) existingBox.remove();
+
+            const messageBox = document.createElement('div');
+            messageBox.id = 'message-box';
+            messageBox.className = `fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50`;
+            
+            messageBox.innerHTML = `
+                <div class="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full transform transition-all duration-300 scale-100 ${styleClass} border-4">
+                    <h4 class="text-xl font-bold mb-3">${title}</h4>
+                    <p class="mb-4">${message}</p>
+                    <button onclick="document.getElementById('message-box').remove()" 
+                        class="w-full bg-red-500 text-white font-semibold py-2 rounded-lg hover:bg-red-600 transition duration-150">
+                        확인
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(messageBox);
+        }
+
+        // 페이지 로드 시 버튼 렌더링
+        window.onload = renderRamenButtons;
+
+    </script>
+</body>
+</html>
